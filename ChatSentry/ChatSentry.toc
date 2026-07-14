@@ -1,0 +1,8 @@
+## Interface: 30300
+## Title: ChatSentry
+## Notes: Keyword and player filtering for standard and private-server global chat panels.
+## Author: DarkSolis
+## Version: 1.4.2
+## SavedVariables: ChatSentryDB
+
+ChatSentry.lua

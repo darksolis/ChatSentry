@@ -726,7 +726,7 @@ local function CreateUI()
     Backdrop(navFooter, {0.015, 0.055, 0.095, 0.94}, {0.17, 0.30, 0.48, 0.70})
     MakeText(navFooter, "ADDON STATUS", 10, "TOPLEFT", 14, -12, {0.55, 0.65, 0.78, 1})
     f.footerStatus = MakeText(navFooter, "|cff4bd66f●|r  Active", 13, "TOPLEFT", 14, -32, {0.88, 0.94, 1.00, 1})
-    MakeText(navFooter, "v1.6.3  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
+    MakeText(navFooter, "v1.6.4  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
 
     f.pages, f.navButtons = {}, {}
     local tabs = {

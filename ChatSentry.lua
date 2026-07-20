@@ -1,4 +1,4 @@
--- ChatSentry v1.6.4
+-- ChatSentry v1.7.5
 -- Professional chat filtering for World of Warcraft 3.3.5a
 
 local ADDON = "ChatSentry"
@@ -52,6 +52,7 @@ local DEFAULTS = {
         smartGuild = false,
         smartLFG = false,
         smartLinks = false,
+        smartLanguage = false,
         placeholderMode = false,
         repeatAllowed = 2,
         repeatWindow = 10,
@@ -363,6 +364,140 @@ local function ContainsAny(text, values)
     return false
 end
 
+-- Language filtering uses a dedicated Spanish scorer plus conservative
+-- detection for other Latin-alphabet languages. Spanish trade/chat messages are
+-- often very short, so the scorer weighs grammar, phrases, accents, and market terms.
+local LANGUAGE_MARKERS = {
+    {" voce ", " nao ", " com ", " uma ", " obrigado ", " vendo ", " compro ", " procuro ", " alguem ", " onde ", " quando ", " posso ", " tenho ", " quero ", " isso ", " porque ", " favor "},
+    {" le ", " la ", " les ", " des ", " une ", " pour ", " avec ", " merci ", " bonjour ", " vendre ", " cherche ", " besoin ", " quelqu ", " quand ", " peux ", " veux ", " parce "},
+    {" il ", " lo ", " gli ", " una ", " per ", " con ", " grazie ", " ciao ", " vendo ", " compro ", " cerco ", " bisogno ", " qualcuno ", " dove ", " quando ", " posso ", " voglio ", " questo ", " perche "},
+}
+
+local SPANISH_STRONG_PHRASES = {
+    " por favor ", " alguien sabe ", " alguien puede ", " me ayudan ", " me ayuda ",
+    " necesito ayuda ", " necesito grupo ", " busco grupo ", " busco guild ",
+    " a cuanto ", " cuanto cuesta ", " que precio ", " donde esta ", " como hago ",
+    " quiero comprar ", " quiero vender ", " estoy buscando ", " manda mensaje ",
+    " mandame mensaje ", " susurrame ", " vendo ", " compro ", " busco ",
+    " necesito ", " ofrezco ", " cambio ", " gracias ", " hola ",
+}
+
+local SPANISH_GRAMMAR_MARKERS = {
+    " que ", " para ", " por ", " una ", " unos ", " unas ", " los ", " las ",
+    " del ", " al ", " como ", " porque ", " pero ", " esto ", " esta ", " este ",
+    " tengo ", " quiero ", " puedo ", " alguien ", " donde ", " cuando ", " quien ",
+    " cual ", " cuanto ", " mucho ", " poco ", " tambien ", " solo ", " necesito ",
+}
+
+local SPANISH_MARKET_MARKERS = {
+    " vendo ", " comprar ", " compro ", " vender ", " busco ", " cambio ",
+    " ofrezco ", " precio ", " oro ", " puntos ", " fichas ", " tokens ",
+    " barato ", " oferta ", " susurro ", " mensaje ", " interesados ",
+}
+
+local function CountWords(text)
+    local count = 0
+    for _ in string.gmatch(text, "[%a\128-\255']+") do count = count + 1 end
+    return count
+end
+
+local function CountMarkers(text, markers)
+    local score = 0
+    for _, marker in ipairs(markers) do
+        if find(text, marker, 1, true) then score = score + 1 end
+    end
+    return score
+end
+
+local function HasSpanishLanguageSignal(text)
+    local padded = " " .. lower(text or "") .. " "
+    padded = gsub(padded, "[^%w\128-\255']+", " ")
+    padded = gsub(padded, "%s+", " ")
+
+    local words = CountWords(padded)
+    if words < 3 or #padded < 9 then return false end
+
+    local strong = CountMarkers(padded, SPANISH_STRONG_PHRASES)
+    local grammar = CountMarkers(padded, SPANISH_GRAMMAR_MARKERS)
+    local market = CountMarkers(padded, SPANISH_MARKET_MARKERS)
+
+    local spanishPunctuation = find(text, "¿", 1, true) or find(text, "¡", 1, true)
+    local spanishSpecific = find(padded, "ñ", 1, true)
+    local spanishAccent = find(padded, "á", 1, true) or find(padded, "í", 1, true) or
+        find(padded, "ó", 1, true) or find(padded, "ú", 1, true) or
+        find(padded, "é", 1, true)
+
+    -- Strong Spanish trade/action words are enough when paired with grammar or
+    -- another market term. This catches short messages such as "vendo puntos barato".
+    if strong >= 2 then return true end
+    if strong >= 1 and (grammar >= 1 or market >= 2) then return true end
+
+    -- Spanish-specific punctuation/ñ is highly reliable, but still require at
+    -- least one supporting word marker to avoid blocking names or isolated text.
+    if (spanishPunctuation or spanishSpecific) and (strong + grammar + market) >= 1 then return true end
+
+    -- Accented vowels are shared with other languages, so require a stronger
+    -- combined Spanish score.
+    if spanishAccent and (strong * 2 + grammar + market) >= 3 then return true end
+
+    -- Longer unaccented Spanish sentences commonly omit punctuation in game chat.
+    if words >= 5 and (strong * 2 + grammar + market) >= 5 then return true end
+
+    return false
+end
+
+local function HasOtherLatinLanguageSignal(text)
+    local padded = " " .. lower(text or "") .. " "
+    padded = gsub(padded, "[^%w\128-\255']+", " ")
+    local words = CountWords(padded)
+    if words < 4 or #padded < 14 then return false end
+
+    local strongAccent = find(padded, "ã", 1, true) or find(padded, "õ", 1, true) or
+        find(padded, "ç", 1, true) or find(padded, "è", 1, true) or
+        find(padded, "à", 1, true) or find(padded, "ù", 1, true) or
+        find(padded, "ì", 1, true) or find(padded, "ò", 1, true)
+
+    for _, markers in ipairs(LANGUAGE_MARKERS) do
+        local score = CountMarkers(padded, markers)
+        if score >= 4 or (strongAccent and score >= 2) then return true end
+    end
+    return false
+end
+
+local function IsMostlyNonLatinScript(text)
+    text = tostring(text or "")
+    local asciiLetters, nonLatin = 0, 0
+    local i, len = 1, #text
+    while i <= len do
+        local b = string.byte(text, i)
+        if not b then break end
+        if (b >= 65 and b <= 90) or (b >= 97 and b <= 122) then
+            asciiLetters = asciiLetters + 1
+            i = i + 1
+        elseif b < 128 then
+            i = i + 1
+        else
+            local b2 = string.byte(text, i + 1) or 0
+            local isNonLatin = false
+            -- Cyrillic, Hebrew, Arabic, Indic/Thai, CJK, Japanese, and Korean ranges.
+            if (b >= 208 and b <= 211) or (b == 214 or b == 215) or
+               (b >= 216 and b <= 219) or (b >= 224 and b <= 227) or
+               (b >= 228 and b <= 233) then
+                isNonLatin = true
+            end
+            if isNonLatin then nonLatin = nonLatin + 1 end
+            if b < 224 then i = i + 2 elseif b < 240 then i = i + 3 else i = i + 4 end
+        end
+    end
+    local total = asciiLetters + nonLatin
+    return nonLatin >= 3 and total >= 4 and (nonLatin / total) >= 0.45
+end
+
+local function IsLikelyNonEnglishMessage(text)
+    local clean = CleanMessage(text)
+    return IsMostlyNonLatinScript(clean) or HasSpanishLanguageSignal(clean) or HasOtherLatinLanguageSignal(clean)
+end
+
 local function MatchSmartCategory(event, msg, channel)
     local s = ChatSentryDB.settings
     local text = NormalizeSpamText(msg)
@@ -379,6 +514,10 @@ local function MatchSmartCategory(event, msg, channel)
            find(text, "[%w%-]+%.net%f[^%a]") or find(text, "[%w%-]+%.org%f[^%a]") then
             return "smart", "External link"
         end
+    end
+
+    if s.smartLanguage and IsLikelyNonEnglishMessage(msg) then
+        return "smart", "Likely non-English language"
     end
 
     if s.smartBoost then
@@ -726,7 +865,7 @@ local function CreateUI()
     Backdrop(navFooter, {0.015, 0.055, 0.095, 0.94}, {0.17, 0.30, 0.48, 0.70})
     MakeText(navFooter, "ADDON STATUS", 10, "TOPLEFT", 14, -12, {0.55, 0.65, 0.78, 1})
     f.footerStatus = MakeText(navFooter, "|cff4bd66f●|r  Active", 13, "TOPLEFT", 14, -32, {0.88, 0.94, 1.00, 1})
-    MakeText(navFooter, "v1.6.4  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
+    MakeText(navFooter, "v1.7.5  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
 
     f.pages, f.navButtons = {}, {}
     local tabs = {
@@ -1046,6 +1185,7 @@ local function CreateUI()
             {"smartGuild", "Detect contextual guild recruitment"},
             {"smartLFG", "Detect LFG traffic in public channels"},
             {"smartLinks", "Block external website links (item links remain allowed)"},
+            {"smartLanguage", "Block non-English messages with stricter Spanish detection"},
             {"placeholderMode", "Show a compact placeholder instead of hiding blocked chat"},
         }
         for i, item in ipairs(smart) do

@@ -1,4 +1,4 @@
-ChatSentry v1.6.4
+ChatSentry v1.6.1
 =================
 
 A standalone World of Warcraft 3.3.5a chat filtering addon.
@@ -51,3 +51,16 @@ v1.6.4
 - Reduced Blocked Log to the number of rows that physically fit inside the panel.
 - Tightened log text widths and truncation so messages remain inside the window.
 - Ignores leaked BLFG addon protocol packets and removes old BLFG entries from the visible log.
+
+
+v1.7.4
+- Rebuilt directly from the user-confirmed working v1.6.4 codebase.
+- Added one conservative Smart Filter for likely non-English messages.
+- Includes non-Latin scripts and Latin-alphabet Spanish, Portuguese, French, and Italian signals.
+- Original v1.6.4 minimap button code is unchanged.
+
+
+v1.7.5
+- Reworked Spanish detection with stricter grammar, phrase, accent, and trade-language scoring.
+- Better detection of short Spanish trade messages such as vendo, compro, busco, and necesito.
+- Preserved the working v1.6.4 minimap and UI code.

@@ -1,4 +1,4 @@
--- ChatSentry v1.7.5
+-- ChatSentry v1.8.2
 -- Professional chat filtering for World of Warcraft 3.3.5a
 
 local ADDON = "ChatSentry"
@@ -364,104 +364,176 @@ local function ContainsAny(text, values)
     return false
 end
 
--- Language filtering uses a dedicated Spanish scorer plus conservative
--- detection for other Latin-alphabet languages. Spanish trade/chat messages are
--- often very short, so the scorer weighs grammar, phrases, accents, and market terms.
-local LANGUAGE_MARKERS = {
-    {" voce ", " nao ", " com ", " uma ", " obrigado ", " vendo ", " compro ", " procuro ", " alguem ", " onde ", " quando ", " posso ", " tenho ", " quero ", " isso ", " porque ", " favor "},
-    {" le ", " la ", " les ", " des ", " une ", " pour ", " avec ", " merci ", " bonjour ", " vendre ", " cherche ", " besoin ", " quelqu ", " quand ", " peux ", " veux ", " parce "},
-    {" il ", " lo ", " gli ", " una ", " per ", " con ", " grazie ", " ciao ", " vendo ", " compro ", " cerco ", " bisogno ", " qualcuno ", " dove ", " quando ", " posso ", " voglio ", " questo ", " perche "},
+-- Language filtering uses a phrase-first, weighted detector. The goal is to
+-- catch real Spanish/Portuguese chat without treating shared WoW words such as
+-- raid, arena, guild, party, healer, DPS, or BG as language evidence by themselves.
+local SPANISH_PHRASES = {
+    "por favor", "muchas gracias", "buenos dias", "buenas tardes", "buenas noches",
+    "como estas", "que tal", "alguien sabe", "alguien quiere", "alguien puede",
+    "necesito grupo", "necesitamos grupo", "busco grupo", "buscando grupo",
+    "habla espanol", "hablo espanol", "solo espanol", "falta uno",
+    "falta un tanque", "falta sanador", "alguien para", "quien viene",
+    "invitame al grupo", "manda invitacion", "manda mensaje", "mandame mensaje",
+    "vendo barato", "vendo oro", "compro oro", "cuanto cuesta", "que precio",
+    "reclutando para hermandad", "hermandad recluta", "buscamos jugadores",
+    "para mazmorra", "para heroica", "para banda", "duelo aqui", "hola gente",
+    "buenas gente", "donde esta", "como hago", "quiero comprar", "quiero vender",
+    "estoy buscando", "me ayudan", "necesito ayuda", "susurrame",
 }
 
-local SPANISH_STRONG_PHRASES = {
-    " por favor ", " alguien sabe ", " alguien puede ", " me ayudan ", " me ayuda ",
-    " necesito ayuda ", " necesito grupo ", " busco grupo ", " busco guild ",
-    " a cuanto ", " cuanto cuesta ", " que precio ", " donde esta ", " como hago ",
-    " quiero comprar ", " quiero vender ", " estoy buscando ", " manda mensaje ",
-    " mandame mensaje ", " susurrame ", " vendo ", " compro ", " busco ",
-    " necesito ", " ofrezco ", " cambio ", " gracias ", " hola ",
+local PORTUGUESE_PHRASES = {
+    "bom dia", "boa tarde", "boa noite", "como voce", "tudo bem",
+    "muito obrigado", "muito obrigada", "alguem sabe", "alguem quer",
+    "preciso de grupo", "precisamos de grupo", "procurando grupo", "procuro grupo",
+    "falta um", "falta tanque", "falta healer", "falta cura", "alguem para",
+    "quem vem", "me convida", "manda convite", "manda inv", "me chama",
+    "manda sussurro", "vendo barato", "vendo ouro", "compro ouro",
+    "quanto custa", "recrutando para guilda", "guilda recrutando",
+    "procuramos jogadores", "para masmorra", "para heroica", "vamos arena",
+    "vamos bg", "fala portugues", "falo portugues", "so portugues",
 }
 
-local SPANISH_GRAMMAR_MARKERS = {
-    " que ", " para ", " por ", " una ", " unos ", " unas ", " los ", " las ",
-    " del ", " al ", " como ", " porque ", " pero ", " esto ", " esta ", " este ",
-    " tengo ", " quiero ", " puedo ", " alguien ", " donde ", " cuando ", " quien ",
-    " cual ", " cuanto ", " mucho ", " poco ", " tambien ", " solo ", " necesito ",
+-- Distinctive vocabulary is weighted. Ambiguous cross-language/WoW terms are
+-- intentionally excluded from these tables.
+local SPANISH_WORDS = {
+    hola=2, adios=2, gracias=2, favor=1, bueno=1, buena=1, buenos=1, buenas=1,
+    amigo=1, amigos=1, gente=1, nadie=2, tambien=2, ahora=1, luego=1, manana=2,
+    vamos=1, venga=2, vale=1, porque=1, cuando=1, donde=2, quien=2, cual=2,
+    aqui=1, alli=2, estoy=2, estas=1, estamos=2, estan=1, tengo=2, tienes=2,
+    tiene=1, quiero=2, quieres=2, quiere=1, puedo=2, puedes=2, puede=1,
+    necesito=3, necesita=2, necesitamos=3, busco=3, buscando=2, buscamos=2,
+    vendo=3, venta=2, compro=3, comprando=2, comprar=2, vender=2,
+    ofrezco=3, cambio=1, barato=2, precio=2, oro=1, puntos=1, fichas=2,
+    susurro=2, susurrame=3, mensaje=1, interesado=2, interesados=2,
+    grupo=1, jugador=1, jugadores=1, mazmorra=3, banda=1, hermandad=3,
+    mision=2, misiones=2, objetos=1, objeto=1, equipo=1, sanador=3, dano=2,
+    reclutando=2, recluta=2, invita=2, inviten=2, invitame=3, porfa=2,
+    falta=1, faltan=1, vengan=2, oye=2, listo=1, listos=1, materiales=1,
+    profesiones=2, espanol=3, latino=2, latinos=2, tanque=2, curar=2,
 }
 
-local SPANISH_MARKET_MARKERS = {
-    " vendo ", " comprar ", " compro ", " vender ", " busco ", " cambio ",
-    " ofrezco ", " precio ", " oro ", " puntos ", " fichas ", " tokens ",
-    " barato ", " oferta ", " susurro ", " mensaje ", " interesados ",
+local PORTUGUESE_WORDS = {
+    ola=2, oi=2, obrigado=3, obrigada=3, valeu=3, beleza=2, voce=3, voces=3,
+    alguem=3, ninguem=3, agora=1, tambem=2, onde=2, quero=2, preciso=3,
+    precisamos=3, procura=2, procuro=3, procurando=2, vendo=3, compro=3,
+    comprar=2, vender=2, preco=3, barato=2, ouro=2, mensagem=2, sussurro=2,
+    grupo=1, guilda=3, masmorra=3, missao=3, missoes=3, equipamento=2,
+    jogador=1, jogadores=1, recrutando=2, convida=2, convidem=2, cura=1,
+    tanque=1, falta=1, faltam=1, brasileiro=3, brasileiros=3, portugues=3,
+    fala=1, falar=1, vamos=1, muito=1, cara=1, mano=2, gente=1,
 }
 
-local function CountWords(text)
-    local count = 0
-    for _ in string.gmatch(text, "[%a\128-\255']+") do count = count + 1 end
-    return count
+local SPANISH_FUNCTION_WORDS = {
+    el=true, la=true, los=true, las=true, un=true, una=true, unos=true, unas=true,
+    de=true, del=true, al=true, que=true, por=true, para=true, con=true, sin=true,
+    pero=true, como=true, muy=true, mas=true, menos=true, si=true, se=true,
+    te=true, le=true, les=true, mi=true, tu=true, su=true, sus=true,
+}
+
+local PORTUGUESE_FUNCTION_WORDS = {
+    eu=true, voce=true, voces=true, ele=true, ela=true, eles=true, elas=true,
+    me=true, te=true, nos=true, uma=true, ["do"]=true, da=true, dos=true, das=true,
+    no=true, na=true, em=true, por=true, para=true, pra=true, com=true, sem=true,
+    mas=true, que=true, como=true, mais=true, menos=true, muito=true,
+}
+
+local SPANISH_SUFFIXES = {
+    "ando", "iendo", "ados", "adas", "idos", "idas", "cion", "ciones",
+    "mente", "amiento", "imientos", "aron", "ieron", "aban",
+}
+
+local PORTUGUESE_SUFFIXES = {
+    "ando", "endo", "indo", "cao", "coes", "mente", "eiro", "eiros",
+    "eira", "eiras", "zinho", "zinha", "aram", "eram", "iram", "ava", "avam",
+}
+
+local ENGLISH_EVIDENCE = {
+    the=true, this=true, that=true, with=true, from=true, have=true, need=true,
+    looking=true, selling=true, buying=true, please=true, thanks=true, anyone=true,
+    where=true, what=true, when=true, want=true, group=true, guild=true, raid=true,
+    party=true, arena=true, healer=true, tank=true, dps=true, trade=true,
+}
+
+local function NormalizeLatinLanguageText(message)
+    local text = lower(CleanMessage(message or ""))
+    local replacements = {
+        ["á"]="a", ["é"]="e", ["í"]="i", ["ó"]="o", ["ú"]="u",
+        ["ü"]="u", ["ñ"]="n", ["ã"]="a", ["õ"]="o", ["ç"]="c",
+        ["à"]="a", ["è"]="e", ["ì"]="i", ["ò"]="o", ["ù"]="u",
+        ["¿"]=" ", ["¡"]=" ",
+    }
+    for from, to in pairs(replacements) do text = gsub(text, from, to) end
+    text = gsub(text, "'", "")
+    text = gsub(text, "[^a-z0-9]", " ")
+    text = gsub(text, "%s+", " ")
+    return Trim(text)
 end
 
-local function CountMarkers(text, markers)
-    local score = 0
-    for _, marker in ipairs(markers) do
-        if find(text, marker, 1, true) then score = score + 1 end
+local function EndsWithLanguageSuffix(word, suffix)
+    return #word > (#suffix + 2) and string.sub(word, -#suffix) == suffix
+end
+
+local function ContainsLanguagePhrase(text, phrases)
+    local padded = " " .. text .. " "
+    for _, phrase in ipairs(phrases) do
+        if find(padded, " " .. phrase .. " ", 1, true) then return phrase end
     end
-    return score
 end
 
-local function HasSpanishLanguageSignal(text)
-    local padded = " " .. lower(text or "") .. " "
-    padded = gsub(padded, "[^%w\128-\255']+", " ")
-    padded = gsub(padded, "%s+", " ")
-
-    local words = CountWords(padded)
-    if words < 3 or #padded < 9 then return false end
-
-    local strong = CountMarkers(padded, SPANISH_STRONG_PHRASES)
-    local grammar = CountMarkers(padded, SPANISH_GRAMMAR_MARKERS)
-    local market = CountMarkers(padded, SPANISH_MARKET_MARKERS)
-
-    local spanishPunctuation = find(text, "¿", 1, true) or find(text, "¡", 1, true)
-    local spanishSpecific = find(padded, "ñ", 1, true)
-    local spanishAccent = find(padded, "á", 1, true) or find(padded, "í", 1, true) or
-        find(padded, "ó", 1, true) or find(padded, "ú", 1, true) or
-        find(padded, "é", 1, true)
-
-    -- Strong Spanish trade/action words are enough when paired with grammar or
-    -- another market term. This catches short messages such as "vendo puntos barato".
-    if strong >= 2 then return true end
-    if strong >= 1 and (grammar >= 1 or market >= 2) then return true end
-
-    -- Spanish-specific punctuation/ñ is highly reliable, but still require at
-    -- least one supporting word marker to avoid blocking names or isolated text.
-    if (spanishPunctuation or spanishSpecific) and (strong + grammar + market) >= 1 then return true end
-
-    -- Accented vowels are shared with other languages, so require a stronger
-    -- combined Spanish score.
-    if spanishAccent and (strong * 2 + grammar + market) >= 3 then return true end
-
-    -- Longer unaccented Spanish sentences commonly omit punctuation in game chat.
-    if words >= 5 and (strong * 2 + grammar + market) >= 5 then return true end
-
-    return false
-end
-
-local function HasOtherLatinLanguageSignal(text)
-    local padded = " " .. lower(text or "") .. " "
-    padded = gsub(padded, "[^%w\128-\255']+", " ")
-    local words = CountWords(padded)
-    if words < 4 or #padded < 14 then return false end
-
-    local strongAccent = find(padded, "ã", 1, true) or find(padded, "õ", 1, true) or
-        find(padded, "ç", 1, true) or find(padded, "è", 1, true) or
-        find(padded, "à", 1, true) or find(padded, "ù", 1, true) or
-        find(padded, "ì", 1, true) or find(padded, "ò", 1, true)
-
-    for _, markers in ipairs(LANGUAGE_MARKERS) do
-        local score = CountMarkers(padded, markers)
-        if score >= 4 or (strongAccent and score >= 2) then return true end
+local function ScoreLatinLanguage(text, vocabulary, functionWords, suffixes)
+    local score, vocabHits, functionHits, suffixHits, englishHits, words = 0, 0, 0, 0, 0, 0
+    for word in string.gmatch(text, "%S+") do
+        words = words + 1
+        local weight = vocabulary[word]
+        if weight then score = score + weight; vocabHits = vocabHits + 1 end
+        if functionWords[word] then functionHits = functionHits + 1 end
+        if ENGLISH_EVIDENCE[word] then englishHits = englishHits + 1 end
+        for _, suffix in ipairs(suffixes) do
+            if EndsWithLanguageSuffix(word, suffix) then suffixHits = suffixHits + 1; break end
+        end
     end
-    return false
+    score = score + min(functionHits, 3) + min(suffixHits, 2)
+    if englishHits >= 2 then score = score - min(englishHits, 3) end
+    return score, vocabHits, functionHits, suffixHits, englishHits, words
+end
+
+local function DetectLatinLanguage(message)
+    local normalized = NormalizeLatinLanguageText(message)
+    if normalized == "" then return nil end
+
+    local spanishPhrase = ContainsLanguagePhrase(normalized, SPANISH_PHRASES)
+    if spanishPhrase then return "Spanish-language message" end
+    local portuguesePhrase = ContainsLanguagePhrase(normalized, PORTUGUESE_PHRASES)
+    if portuguesePhrase then return "Portuguese-language message" end
+
+    local sScore, sWords, sFunction, sSuffix, sEnglish, wordCount =
+        ScoreLatinLanguage(normalized, SPANISH_WORDS, SPANISH_FUNCTION_WORDS, SPANISH_SUFFIXES)
+    local pScore, pWords, pFunction, pSuffix, pEnglish =
+        ScoreLatinLanguage(normalized, PORTUGUESE_WORDS, PORTUGUESE_FUNCTION_WORDS, PORTUGUESE_SUFFIXES)
+
+    -- Spanish-specific punctuation and ñ are strong supporting evidence, but are
+    -- never used alone because player names can contain them.
+    local raw = lower(CleanMessage(message or ""))
+    if find(raw, "¿", 1, true) or find(raw, "¡", 1, true) or find(raw, "ñ", 1, true) then
+        sScore = sScore + 2
+    end
+    if find(raw, "ã", 1, true) or find(raw, "õ", 1, true) or find(raw, "ç", 1, true) then
+        pScore = pScore + 2
+    end
+
+    -- Short messages need a distinctive word. Longer messages may qualify through
+    -- a combination of vocabulary, grammar, and endings.
+    local spanishMatch = (sScore >= 4 and sWords >= 1 and wordCount >= 2) or
+        (sScore >= 5 and (sFunction >= 2 or sSuffix >= 1) and wordCount >= 4)
+    local portugueseMatch = (pScore >= 4 and pWords >= 1 and wordCount >= 2) or
+        (pScore >= 5 and (pFunction >= 2 or pSuffix >= 1) and wordCount >= 4)
+
+    if spanishMatch and (sScore >= pScore + 1 or not portugueseMatch) then
+        return "Spanish-language message"
+    elseif portugueseMatch then
+        return "Portuguese-language message"
+    end
+    return nil
 end
 
 local function IsMostlyNonLatinScript(text)
@@ -493,9 +565,10 @@ local function IsMostlyNonLatinScript(text)
     return nonLatin >= 3 and total >= 4 and (nonLatin / total) >= 0.45
 end
 
-local function IsLikelyNonEnglishMessage(text)
+local function DetectBlockedLanguage(text)
     local clean = CleanMessage(text)
-    return IsMostlyNonLatinScript(clean) or HasSpanishLanguageSignal(clean) or HasOtherLatinLanguageSignal(clean)
+    if IsMostlyNonLatinScript(clean) then return "Non-Latin language message" end
+    return DetectLatinLanguage(clean)
 end
 
 local function MatchSmartCategory(event, msg, channel)
@@ -516,8 +589,9 @@ local function MatchSmartCategory(event, msg, channel)
         end
     end
 
-    if s.smartLanguage and IsLikelyNonEnglishMessage(msg) then
-        return "smart", "Likely non-English language"
+    if s.smartLanguage then
+        local languageReason = DetectBlockedLanguage(msg)
+        if languageReason then return "smart", languageReason end
     end
 
     if s.smartBoost then
@@ -865,7 +939,7 @@ local function CreateUI()
     Backdrop(navFooter, {0.015, 0.055, 0.095, 0.94}, {0.17, 0.30, 0.48, 0.70})
     MakeText(navFooter, "ADDON STATUS", 10, "TOPLEFT", 14, -12, {0.55, 0.65, 0.78, 1})
     f.footerStatus = MakeText(navFooter, "|cff4bd66f●|r  Active", 13, "TOPLEFT", 14, -32, {0.88, 0.94, 1.00, 1})
-    MakeText(navFooter, "v1.7.5  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
+    MakeText(navFooter, "v1.8.2  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
 
     f.pages, f.navButtons = {}, {}
     local tabs = {
@@ -1185,7 +1259,7 @@ local function CreateUI()
             {"smartGuild", "Detect contextual guild recruitment"},
             {"smartLFG", "Detect LFG traffic in public channels"},
             {"smartLinks", "Block external website links (item links remain allowed)"},
-            {"smartLanguage", "Block non-English messages with stricter Spanish detection"},
+            {"smartLanguage", "Block non-English messages with weighted Spanish / Portuguese detection"},
             {"placeholderMode", "Show a compact placeholder instead of hiding blocked chat"},
         }
         for i, item in ipairs(smart) do

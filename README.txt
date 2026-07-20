@@ -1,4 +1,4 @@
-ChatSentry v1.6.1
+ChatSentry v1.7.5
 =================
 
 A standalone World of Warcraft 3.3.5a chat filtering addon.

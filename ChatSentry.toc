@@ -2,7 +2,7 @@
 ## Title: ChatSentry
 ## Notes: Keyword and player filtering for standard and private-server global chat panels.
 ## Author: DarkSolis
-## Version: 1.8.2
+## Version: 1.8.3
 ## SavedVariables: ChatSentryDB
 
 ChatSentry.lua

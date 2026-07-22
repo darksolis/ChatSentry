@@ -1,4 +1,4 @@
--- ChatSentry v1.8.2
+-- ChatSentry v1.8.3
 -- Professional chat filtering for World of Warcraft 3.3.5a
 
 local ADDON = "ChatSentry"
@@ -396,20 +396,53 @@ local PORTUGUESE_PHRASES = {
 -- Distinctive vocabulary is weighted. Ambiguous cross-language/WoW terms are
 -- intentionally excluded from these tables.
 local SPANISH_WORDS = {
-    hola=2, adios=2, gracias=2, favor=1, bueno=1, buena=1, buenos=1, buenas=1,
-    amigo=1, amigos=1, gente=1, nadie=2, tambien=2, ahora=1, luego=1, manana=2,
-    vamos=1, venga=2, vale=1, porque=1, cuando=1, donde=2, quien=2, cual=2,
-    aqui=1, alli=2, estoy=2, estas=1, estamos=2, estan=1, tengo=2, tienes=2,
-    tiene=1, quiero=2, quieres=2, quiere=1, puedo=2, puedes=2, puede=1,
-    necesito=3, necesita=2, necesitamos=3, busco=3, buscando=2, buscamos=2,
-    vendo=3, venta=2, compro=3, comprando=2, comprar=2, vender=2,
-    ofrezco=3, cambio=1, barato=2, precio=2, oro=1, puntos=1, fichas=2,
-    susurro=2, susurrame=3, mensaje=1, interesado=2, interesados=2,
-    grupo=1, jugador=1, jugadores=1, mazmorra=3, banda=1, hermandad=3,
-    mision=2, misiones=2, objetos=1, objeto=1, equipo=1, sanador=3, dano=2,
-    reclutando=2, recluta=2, invita=2, inviten=2, invitame=3, porfa=2,
-    falta=1, faltan=1, vengan=2, oye=2, listo=1, listos=1, materiales=1,
-    profesiones=2, espanol=3, latino=2, latinos=2, tanque=2, curar=2,
+    -- Greetings / conversational words
+    hola=5, holas=5, buenas=4, buenos=4, adios=5, gracias=5, graciasa=4,
+    favor=2, porfa=5, porfavor=5, oye=4, oigan=4, mira=3, miren=3,
+    amigo=3, amiga=3, amigos=3, amigas=3, gente=3, todos=2, todas=2,
+    nadie=4, alguien=4, alguno=3, alguna=3, algunos=3, algunas=3,
+    tambien=4, tampoco=4, ahora=3, luego=3, manana=4, ayer=3, hoy=2,
+    vamos=3, venga=4, vengan=4, vale=4, claro=3, bueno=2, buena=2,
+
+    -- Question / grammar-heavy words
+    porque=4, porquen=3, cuando=4, donde=5, quien=5, quienes=5, cual=4,
+    cuales=4, cuanto=5, cuantos=4, cuanta=4, cuantas=4, como=4, que=2,
+    aqui=3, alli=4, alla=4, esto=3, esta=2, este=2, estos=3, estas=2,
+    eso=3, esa=3, esos=3, esas=3, muy=2, mas=2, menos=2, pero=2,
+
+    -- First-person / action words
+    estoy=5, estas=3, estamos=5, estan=3, tengo=5, tienes=5, tiene=3,
+    tenemos=5, quiero=5, quieres=5, quiere=3, queremos=5, puedo=5,
+    puedes=5, puede=3, podemos=5, necesito=6, necesita=5, necesitamos=6,
+    necesitan=5, ayudo=4, ayuda=4, ayudan=4, ayudar=4, ayudame=6,
+    busco=6, busca=4, buscando=5, buscamos=5, buscan=4, encuentro=4,
+    encontrado=4, falta=4, faltan=4, listo=3, listos=3, lista=3, listas=3,
+
+    -- Trading / recruitment / group terms
+    vendo=7, vendiendo=6, venta=5, vender=5, compro=7, comprando=6,
+    comprar=5, ofrezco=6, oferta=5, ofertas=5, cambio=4, barato=5,
+    barata=5, baratos=5, baratas=5, precio=5, precios=5, oro=3,
+    puntos=3, fichas=5, moneda=4, monedas=4, susurro=5, susurra=5,
+    susurrame=7, mensaje=3, mandame=6, manda=4, interesado=5,
+    interesada=5, interesados=5, interesadas=5, invito=5, invita=5,
+    inviten=5, invitame=7, grupo=3, grupos=3, jugador=3, jugadores=3,
+    jugadora=3, jugadoras=3, mazmorra=6, mazmorras=6, banda=3,
+    hermandad=6, hermandades=6, mision=5, misiones=5, objeto=3,
+    objetos=3, equipo=3, equipos=3, sanador=6, sanadora=6, curador=5,
+    curar=5, dano=4, reclutando=5, recluta=5, reclutamos=6, tanque=4,
+    materiales=4, profesiones=5, profesion=5, nivel=2, niveles=3,
+
+    -- Language / regional indicators
+    espanol=8, espanola=8, latino=6, latina=6, latinos=6, latinas=6,
+    castellano=8, mexicano=6, mexicana=6, argentinos=6, chileno=6,
+    colombianos=6, venezolano=6, peruano=6,
+
+    -- Common Spanish WoW/chat verbs and slang
+    dale=5, daleeee=5, ven=4, vente=5, vamossss=5, espera=4, esperen=4,
+    rapido=4, rapida=4, facil=3, dificil=3, matar=4, matamos=4,
+    muerto=3, muertos=3, entrar=4, salimos=4, salgan=4, quedamos=4,
+    somos=4, eres=4, soy=4, pueden=4, quieren=4, tienen=4, necesitan=5,
+    buscando=5, recluto=5, guilda=3, clan=3, servidor=4, reino=4,
 }
 
 local PORTUGUESE_WORDS = {
@@ -428,6 +461,25 @@ local SPANISH_FUNCTION_WORDS = {
     de=true, del=true, al=true, que=true, por=true, para=true, con=true, sin=true,
     pero=true, como=true, muy=true, mas=true, menos=true, si=true, se=true,
     te=true, le=true, les=true, mi=true, tu=true, su=true, sus=true,
+}
+
+-- Hardcore mode: these words are distinctive enough to block even in very short
+-- messages. This intentionally favors catching Spanish over avoiding every edge-case.
+local SPANISH_IMMEDIATE_WORDS = {
+    hola=true, holas=true, gracias=true, adios=true, porfa=true, porfavor=true,
+    alguien=true, nadie=true, donde=true, quien=true, cuanto=true, cuantos=true,
+    necesito=true, necesitamos=true, busco=true, buscamos=true, buscando=true,
+    vendo=true, vendiendo=true, compro=true, comprando=true, ofrezco=true,
+    susurrame=true, invitame=true, mandame=true, mazmorra=true, mazmorras=true,
+    hermandad=true, hermandades=true, reclutando=true, reclutamos=true,
+    espanol=true, castellano=true, latino=true, latina=true, latinos=true,
+    ayudame=true, dale=true, vente=true, vengan=true, esperen=true,
+}
+
+local SPANISH_COMMON_PAIRS = {
+    " que ", " para ", " por ", " con ", " del ", " una ", " los ", " las ",
+    " como ", " donde ", " alguien ", " quiero ", " tengo ", " necesito ",
+    " busco ", " vendo ", " compro ", " falta ", " estamos ", " ustedes ",
 }
 
 local PORTUGUESE_FUNCTION_WORDS = {
@@ -497,6 +549,22 @@ local function ScoreLatinLanguage(text, vocabulary, functionWords, suffixes)
     return score, vocabHits, functionHits, suffixHits, englishHits, words
 end
 
+local function HasImmediateSpanishWord(text)
+    for word in string.gmatch(text, "%S+") do
+        if SPANISH_IMMEDIATE_WORDS[word] then return true end
+    end
+    return false
+end
+
+local function CountSpanishCommonMarkers(text)
+    local padded = " " .. text .. " "
+    local count = 0
+    for _, marker in ipairs(SPANISH_COMMON_PAIRS) do
+        if find(padded, marker, 1, true) then count = count + 1 end
+    end
+    return count
+end
+
 local function DetectLatinLanguage(message)
     local normalized = NormalizeLatinLanguageText(message)
     if normalized == "" then return nil end
@@ -521,14 +589,23 @@ local function DetectLatinLanguage(message)
         pScore = pScore + 2
     end
 
-    -- Short messages need a distinctive word. Longer messages may qualify through
-    -- a combination of vocabulary, grammar, and endings.
-    local spanishMatch = (sScore >= 4 and sWords >= 1 and wordCount >= 2) or
-        (sScore >= 5 and (sFunction >= 2 or sSuffix >= 1) and wordCount >= 4)
+    -- Hardcore Spanish filtering. A single highly distinctive Spanish word is
+    -- enough. Otherwise, two common grammar markers or a low weighted score will
+    -- block the message. This intentionally accepts more false positives in order
+    -- to stop short, unaccented, slang-heavy Spanish chat reliably.
+    local immediateSpanish = HasImmediateSpanishWord(normalized)
+    local commonSpanish = CountSpanishCommonMarkers(normalized)
+    local spanishMatch = immediateSpanish or
+        (sScore >= 3 and sWords >= 1) or
+        (sScore >= 3 and sFunction >= 1 and wordCount >= 2) or
+        (commonSpanish >= 2 and wordCount >= 3) or
+        (sFunction >= 3 and wordCount >= 4) or
+        (sSuffix >= 1 and sWords >= 1 and wordCount >= 2)
+
     local portugueseMatch = (pScore >= 4 and pWords >= 1 and wordCount >= 2) or
         (pScore >= 5 and (pFunction >= 2 or pSuffix >= 1) and wordCount >= 4)
 
-    if spanishMatch and (sScore >= pScore + 1 or not portugueseMatch) then
+    if spanishMatch then
         return "Spanish-language message"
     elseif portugueseMatch then
         return "Portuguese-language message"
@@ -939,7 +1016,7 @@ local function CreateUI()
     Backdrop(navFooter, {0.015, 0.055, 0.095, 0.94}, {0.17, 0.30, 0.48, 0.70})
     MakeText(navFooter, "ADDON STATUS", 10, "TOPLEFT", 14, -12, {0.55, 0.65, 0.78, 1})
     f.footerStatus = MakeText(navFooter, "|cff4bd66f●|r  Active", 13, "TOPLEFT", 14, -32, {0.88, 0.94, 1.00, 1})
-    MakeText(navFooter, "v1.8.2  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
+    MakeText(navFooter, "v1.8.3  •  By Darksolis", 11, "TOPLEFT", 14, -54, {0.68, 0.76, 0.90, 1})
 
     f.pages, f.navButtons = {}, {}
     local tabs = {
@@ -1259,7 +1336,7 @@ local function CreateUI()
             {"smartGuild", "Detect contextual guild recruitment"},
             {"smartLFG", "Detect LFG traffic in public channels"},
             {"smartLinks", "Block external website links (item links remain allowed)"},
-            {"smartLanguage", "Block non-English messages with weighted Spanish / Portuguese detection"},
+            {"smartLanguage", "Aggressively block Spanish and other non-English messages"},
             {"placeholderMode", "Show a compact placeholder instead of hiding blocked chat"},
         }
         for i, item in ipairs(smart) do

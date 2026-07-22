@@ -1,4 +1,4 @@
-ChatSentry v1.8.2
+ChatSentry v1.8.3
 =================
 
 A standalone World of Warcraft 3.3.5a chat filtering and moderation addon,
@@ -97,3 +97,11 @@ v1.8.2
 - Fixed a Lua 5.1 syntax error introduced by the language-detector merge.
 - The Portuguese word "do" is now stored with bracket notation because "do" is a reserved Lua keyword.
 - No filtering behavior, UI layout, minimap behavior, or saved settings were otherwise changed.
+
+
+v1.8.3
+- Reworked Spanish detection into an aggressive blocking mode.
+- Blocks many distinctive Spanish words even in one- or two-word messages.
+- Added broader Spanish greetings, grammar, trade, group, recruitment, WoW, and slang vocabulary.
+- Lowered Spanish scoring thresholds and added multi-marker grammar detection.
+- Existing UI, minimap, saved settings, chat bridge, and non-language filters were not changed.
